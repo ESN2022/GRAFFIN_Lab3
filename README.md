@@ -11,21 +11,27 @@ Le but est ainsi de communiquer en I2C avec l'acceléromètre et d'afficher la v
 ## Architecture
 
 
-Pour cet exercice, j'ai utilisé un Nios2 avec ses périphériques nécessaire pour qu'il fonctionne et le debugguer : Mémoire RAM, JTAG debugger, Clock. Pour interfacer tous les autres périphériques (bouton, afficheur) j'ai utilisé des PIO. Le tout communiquant avec le bus Avalon. Le montage final sur Platform Designer se trouve sur l'image ci-dessous avec le schéma:
+Pour cet exercice, j'ai utilisé un Nios2 avec ses périphériques nécessaire pour qu'il fonctionne et le debugguer : Mémoire RAM, JTAG debugger, Clock. Pour interfacer tous les autres périphériques (bouton, afficheur) j'ai utilisé des PIO. Il y a aussi un timer pour cadencer les mesures et l'affichage à 1Hz. Le tout communique avec un bus Avalon. Le montage final sur Platform Designer se trouve sur l'image ci-dessous avec le schéma:
 
+![Sans titre](https://user-images.githubusercontent.com/75631006/213670692-9f16a47c-aa75-4828-adeb-736cc73c5b3c.png)
 
+![image](https://user-images.githubusercontent.com/75631006/213668829-f03b643f-af11-4d09-b088-4f8d300b0dc8.png)
 
-J'ai utilisé 3 PIO pour connecter les périphériques extérieurs au FPGA, car les LEDs sont en sortie alors que les boutons et les switchs en entrée et j'ai différencié les switchs aux boutons pour que ce soit plus pratique dans le code C.
-De plus, mon bloque hardware est simple, c'est juste la connexion avec la clock, le reset et les PIO dans le VHDL, et grâce à la datasheet de la carte DE10 Lite, j'ai connecté dans le pin planer les bonnes Pin avec mes ressources.
+J'ai utilisé 1 PIO pour connecter les afficheurs 7 segments, car ils ont la même direction et qu'ils sont lié en terme de pilotage dans le code en C. Pour utiliser les afficheurs, j'ai instencié 2 bloc hardware qui se ressemble beaucoup et qui permettent de convertir les données qui arrive de la PIO en binaire en un signal correct pour un afficheurs 7 segments. La seule différence est que l'un active le point et l'autre non.
 
 
 ## Results / Progress
 
-Le premier résultat, allumer un led était simple, sans trop de problèmes et surtout avec un code C minime. La prochaine étape était de faire le chenillard en lui même, encore une fois pas très compliqué. Là où j'ai eu plus de mal, c'est lorsqu'il a fallu changer la manière d'interagir avec le bouton et les switchs. En effet, les interruptions pour gérer la vitesse et le bouton start n'ont pas été simple à mettre en oeuvre.
-Finalement, j'ai réussi à aller au bout de ce lab avec un chenillard sur les Leds qui est déclenché par un bouton géré par une interruption et dont la vitesse peut être changée via les switchs, eux même gérés avec une interruption. 
+Le premier résultat, comminiquer avec l'accéléromètre, était une partie critique et était assez complexe à réaliser. La lecture de la doc était obligatoire pour comprendre et arrivé au but de l'étape. 
+La calibration du capteur a été rapide car il ne driftait presque pas, c'est pourquoi il n'y a pas eu d'offset de mis.
+Les étapes suivantes, l'affichage sur des afficheurs 7 segments et le réglage de l'axe avec un bouton ont était réalisé grâce à ce que j'avais déjà réalisé lors des précedents Lab, donc sans trop de problème. Le Timer et le bouton sont gérés par interruption. On obtient finalement le résultat dans les vidéos suivantes, avec un système qui est calibré et qui respecte le cahier des charges.
+
+https://user-images.githubusercontent.com/75631006/213673291-1132d943-623e-49fe-9183-3a090a02e856.mp4
+
+https://user-images.githubusercontent.com/75631006/213673690-46928d32-a5f8-43c9-b3ad-18593be0ba1f.mp4
+
 
 ## conclusion
 
-Ce lab m'a permis d'appréhender  un peut mieux le flow de conception en co-design, avec les commandes, l'ordre des manipulations, l'interaction entre le hard et le soft ou le pin mapping. Il y a certaines étapes que je n'avais jamais fait et cela m'a permis d'être sur de les comprendre pour pouvoir les reproduires lors des prochains lab et plus tard encore.
-Le seul point noir où j'ai eu du mal a été par rapport aux interruptions que j'ai solutionné grâce à la documentationet à mes collègues.
+Ce lab m'a permis d'appuyer mes connaissances en codigne que j'avais appr_s au cours des deux premier Lab. En effet, j'ai réutiliser ce que j'avais déjà fait, notament avec l'afficheur, le timer et le bouton. Ainsi, le seul point bloquant de ce Lab était la communication I2C avec l'accéléromètre, que j'ai fini par réussir.
 
