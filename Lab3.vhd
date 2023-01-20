@@ -9,6 +9,7 @@ entity Lab3 is
 		i2c_0_export_scl_pad_io : inout std_logic := '0'; -- scl_pad_io
       i2c_0_export_sda_pad_io : inout std_logic := '0';  -- sda_pad_io
 		segment_out : out std_logic_vector(39 downto 0);
+		pio1 : in std_logic :='0';
 		cs_n : out std_logic := '1';
 		alt_adr : out std_logic := '1'
 	);
@@ -23,6 +24,7 @@ architecture arch of Lab3 is
             clk_clk                 : in    std_logic := 'X'; -- clk
             rst_reset_n             : in    std_logic := 'X'; -- reset_n
 				pio_0_export				: out   std_logic_vector(19 downto 0); --pio0
+				pio_1_export				: in	  std_logic := 'X'; --pio1
             i2c_0_export_scl_pad_io : inout std_logic := 'X'; -- scl_pad_io
             i2c_0_export_sda_pad_io : inout std_logic := 'X'  -- sda_pad_io
         );
@@ -52,6 +54,7 @@ begin
             clk_clk     => clk,     -- clk.clk
             rst_reset_n => rst, 		-- rst.reset_n 
 				pio_0_export => pio_7seg,
+				pio_1_export => pio1,
 				i2c_0_export_sda_pad_io => i2c_0_export_sda_pad_io,
 				i2c_0_export_scl_pad_io => i2c_0_export_scl_pad_io
 			);

@@ -26,6 +26,10 @@
 #define OFSY	0x1F
 #define OFSZ	0x20
 
+int valeur_switch=0;
+
+
+
 void I2C_WRITE(alt_u32 base,alt_u8 reg, alt_u8 data){
 	
 	I2C_start(base,ADRR,0);
@@ -48,25 +52,28 @@ int I2C_READ(alt_u32 base, alt_u8 reg){
 }
 
 
-void READ_XYZ (void){
+void READ_XYZ (int xyz){
 	
 	alt_16 data;
 	alt_32 a;
 	
-	data = I2C_READ(OPENCORES_I2C_0_BASE, DATAX0);
-	data = data | (I2C_READ(OPENCORES_I2C_0_BASE, DATAX1)<<8);
-	a = data*4;
-	printf("datax = %d\n", a);
-		
-	data = I2C_READ(OPENCORES_I2C_0_BASE, DATAY0);
-	data = data | (I2C_READ(OPENCORES_I2C_0_BASE, DATAY1)<<8);
-	a = data*4;
-	printf("datay = %d\n", a);
+	switch (xyz){
+		case 0:
+			data = I2C_READ(OPENCORES_I2C_0_BASE, DATAX0);
+			data = data | (I2C_READ(OPENCORES_I2C_0_BASE, DATAX1)<<8);
+			break;
+		case 1:
+			data = I2C_READ(OPENCORES_I2C_0_BASE, DATAY0);
+			data = data | (I2C_READ(OPENCORES_I2C_0_BASE, DATAY1)<<8);
+			break;
+		case 2:
+			data = I2C_READ(OPENCORES_I2C_0_BASE, DATAZ0);
+			data = data | (I2C_READ(OPENCORES_I2C_0_BASE, DATAZ1)<<8);
+			break;
+	}
 
-	data = I2C_READ(OPENCORES_I2C_0_BASE, DATAZ0);
-	data = data | (I2C_READ(OPENCORES_I2C_0_BASE, DATAZ1)<<8);
 	a = data*4;
-	
+
 	int signe;
 	
 	if (a<0){
@@ -76,8 +83,6 @@ void READ_XYZ (void){
 	else{
 		signe=0b1110;
 	}
-	
-	
 	
 	int unit,diz,cent,mil;
 	
@@ -90,10 +95,6 @@ void READ_XYZ (void){
 	mil=a%10000;
 	IOWR_ALTERA_AVALON_PIO_DATA(PIO_0_BASE, (signe << 16) | (mil/1000<<12) | (cent/100<<8) | (diz/10<<4) | unit);
 	
-	
-	printf("dataz = %d\n", a);
-	
-	printf("\n");
 }
 
 
@@ -102,7 +103,6 @@ void INIT_ADXL345(void){
 	I2C_WRITE(OPENCORES_I2C_0_BASE, POWER_CTL, (1 << 3));
 	I2C_WRITE(OPENCORES_I2C_0_BASE, DATA_FORMAT, (1 << 3));
 	
-	printf("init\n\n");
 }
 
 
@@ -114,17 +114,28 @@ void CALIBRATE_XYZ(void){
 	usleep(10000);
 	I2C_WRITE(OPENCORES_I2C_0_BASE, OFSZ, (alt_u8) (8/15.6));
 	usleep(10000);
-	
+	/*
 	printf("offset x = %d\n",(I2C_READ(OPENCORES_I2C_0_BASE, OFSX)));
 	printf("offset y = %d\n",(I2C_READ(OPENCORES_I2C_0_BASE, OFSY)));
-	printf("offset z = %d\n",(I2C_READ(OPENCORES_I2C_0_BASE, OFSZ)));
+	printf("offset z = %d\n",(I2C_READ(OPENCORES_I2C_0_BASE, OFSZ)));*/
+}
+
+static void switch_interrupt(void* context){
+	
+	if (valeur_switch<2){
+		valeur_switch+=1;
+	}
+	else{
+		valeur_switch=0;
+	}
+	
+	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(PIO_1_BASE, 0b1);
 }
 
 
 
-
 static void timer_interrupts(void* context){
-	READ_XYZ();
+	READ_XYZ(valeur_switch);
 	IOWR_ALTERA_AVALON_TIMER_STATUS(TIMER_0_BASE, 0);
 }
 
@@ -141,7 +152,9 @@ int main(void){
     // Start timer
     IOWR_ALTERA_AVALON_TIMER_CONTROL(TIMER_0_BASE, 0x0007);	
 	
-	
+	IOWR_ALTERA_AVALON_PIO_IRQ_MASK(PIO_1_BASE, 0b1);
+	IOWR_ALTERA_AVALON_PIO_EDGE_CAP(PIO_1_BASE, 0b1);
+	alt_irq_register(PIO_1_IRQ, NULL, (void*)switch_interrupt);
 	
 	
 	while(1){}
