@@ -1,21 +1,30 @@
 #include <stdio.h>
+#include <unistd.h>
 #include "system.h"
-#include "unistd.h"
+#include "sys/alt_irq.h"
+#include "altera_avalon_timer_regs.h"
 #include "opencores_i2c.h"
-#include "opencores_i2c_regs.h"
+#include "altera_avalon_pio_regs.h"
 
+#define ADRR 0x1D										// I2C adresse									
 
-
-#define ADRR 0x1D										// I2C adress									
 #define POWER_CTL  0x2D                                 // registre Power Control
 #define DATA_FORMAT  0x31                               // registre Data Format
+
 #define DATAX0  0x32                                    // bit de poids faible axe X
 #define DATAX1  0x33                                    // bit de poids fort axe X
 #define DATAY0  0x34                                    // bit de poids faible axe Y
 #define DATAY1  0x35                                    // bit de poids fort axe Y
 #define DATAZ0  0x36                                    // bit de poids faible axe Z
-#define DATAZ1  0x37
+#define DATAZ1  0x37									// bit de poids fort axe Z
 
+#define OFSX	0x1E
+#define OFSY	0x1F
+#define OFSZ	0x20
+
+#define OFSX	0x1E
+#define OFSY	0x1F
+#define OFSZ	0x20
 
 void I2C_WRITE(alt_u32 base,alt_u8 reg, alt_u8 data){
 	
@@ -57,10 +66,34 @@ void READ_XYZ (void){
 	data = I2C_READ(OPENCORES_I2C_0_BASE, DATAZ0);
 	data = data | (I2C_READ(OPENCORES_I2C_0_BASE, DATAZ1)<<8);
 	a = data*4;
+	
+	int signe;
+	
+	if (a<0){
+		signe=0b1111;
+		a=-a;
+	}
+	else{
+		signe=0b1110;
+	}
+	
+	
+	
+	int unit,diz,cent,mil;
+	
+	unit=a%10;
+	a-=unit;
+	diz=a%100;
+	a-=diz;
+	cent=a%1000;
+	a-=cent;
+	mil=a%10000;
+	IOWR_ALTERA_AVALON_PIO_DATA(PIO_0_BASE, (signe << 16) | (mil/1000<<12) | (cent/100<<8) | (diz/10<<4) | unit);
+	
+	
 	printf("dataz = %d\n", a);
 	
 	printf("\n");
-	usleep(1000000);
 }
 
 
@@ -70,106 +103,50 @@ void INIT_ADXL345(void){
 	I2C_WRITE(OPENCORES_I2C_0_BASE, DATA_FORMAT, (1 << 3));
 	
 	printf("init\n\n");
+}
+
+
+void CALIBRATE_XYZ(void){
 	
+	I2C_WRITE(OPENCORES_I2C_0_BASE, OFSX, (alt_u8) (0/15.6));
+	usleep(10000);
+	I2C_WRITE(OPENCORES_I2C_0_BASE, OFSY, (alt_u8) (0/15.6));
+	usleep(10000);
+	I2C_WRITE(OPENCORES_I2C_0_BASE, OFSZ, (alt_u8) (8/15.6));
+	usleep(10000);
+	
+	printf("offset x = %d\n",(I2C_READ(OPENCORES_I2C_0_BASE, OFSX)));
+	printf("offset y = %d\n",(I2C_READ(OPENCORES_I2C_0_BASE, OFSY)));
+	printf("offset z = %d\n",(I2C_READ(OPENCORES_I2C_0_BASE, OFSZ)));
 }
 
 
 
+
+static void timer_interrupts(void* context){
+	READ_XYZ();
+	IOWR_ALTERA_AVALON_TIMER_STATUS(TIMER_0_BASE, 0);
+}
 
 
 
 int main(void){
-	
-	
+
 	INIT_ADXL345();
-	
-		
-	
-	
-	
-	
-	while(1){
-		READ_XYZ();
-		
-	}
+	CALIBRATE_XYZ();
+
+
+    // Register the ISR for timer event
+    alt_irq_register(TIMER_0_IRQ, NULL,(void*)timer_interrupts);
+    // Start timer
+    IOWR_ALTERA_AVALON_TIMER_CONTROL(TIMER_0_BASE, 0x0007);	
 	
 	
+	
+	
+	while(1){}
+	
+	
+
 	return 0;
 }
-
-
-/*
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <linux/i2c-dev.h>
-
-int main(){
-    // Initialisation des variables
-    int file;
-    int accel_addr = 0x53;
-    char buf[2];
-    int retval;
-    float x,y,z;
-
-    // Ouverture du fichier de l'interface i2c
-    if ((file = open("/dev/i2c-1", O_RDWR)) < 0){
-        printf("Impossible d'ouvrir le fichier\n");
-        return -1;
-    }
-
-    // Configuration et ouverture de l'accéléromètre
-    if (ioctl(file, I2C_SLAVE, accel_addr) < 0){
-        printf("Impossible de configurer le capteur\n");
-        return -1;
-    }
-
-    // Réinitialisation de l'accéléromètre
-    buf[0] = 0x2D;
-    buf[1] = 0x08;
-    retval = write(file, buf, 2);
-    if (retval != 2) {
-        printf("Erreur lors de la réinitialisation du capteur\n");
-        return -1;
-    }
-
-    // Définition du mode de mesure
-    buf[0] = 0x31;
-    buf[1] = 0x08;
-    retval = write(file, buf, 2);
-    if (retval != 2) {
-        printf("Erreur lors de la définition du mode de mesure\n");
-        return -1;
-    }
-
-    // Lecture des données
-    buf[0] = 0x32;
-    retval = write(file, buf, 1);
-    if (retval != 1) {
-        printf("Erreur lors de la lecture des données\n");
-        return -1;
-    }
-    retval = read(file, buf, 6);
-    if (retval != 6) {
-        printf("Erreur lors de la lecture des données\n");
-        return -1;
-    }
-
-    // Conversion des données
-    x = (buf[1] << 8) | buf[0];
-    y = (buf[3] << 8) | buf[2];
-    z = (buf[5] << 8) | buf[4];
-    x = x * 0.0039;
-    y = y * 0.0039;
-    z = z * 0.0039;
-
-    // Affichage des données
-    printf("x: %.2f\n", x);
-    printf("y: %.2f\n", y);
-    printf("z: %.2f\n", z);
-
-    return 0;
-}
-
-*/
